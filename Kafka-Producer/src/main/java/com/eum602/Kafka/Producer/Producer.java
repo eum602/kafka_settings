@@ -1,14 +1,15 @@
 package com.eum602.Kafka.Producer;
 
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.*;
 import org.apache.kafka.common.serialization.StringSerializer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Properties;
 
 public class Producer {
     public static void main(String[] args) {
+        Logger logger = LoggerFactory.getLogger(Producer.class);
         String bootstrapServers =  "127.0.0.1:9092";
         //Create producer properties
         Properties properties = new Properties();//creating a new properties object
@@ -22,10 +23,28 @@ public class Producer {
         KafkaProducer<String,String> producer = new KafkaProducer<String, String>(properties); //We want the key and value to be a string
 
         //Create a producer record
-        ProducerRecord<String,String> record =  new ProducerRecord<>("first_topic", "hello world");
+        for (int i=0; i<10;i++){
+            ProducerRecord<String,String> record =  new ProducerRecord<>("first_topic", "message #" + Integer.toString(i));
+            //as we do not use any keys then all the messages will go to random partitions. What is more all messages will go to all partitions.
 
-        //send data
-        producer.send(record);
+            //send data
+            producer.send(record, new Callback() {
+                @Override
+                public void onCompletion(RecordMetadata metadata, Exception exception) {
+                    //executes every time a record is successfully sent or an exception is thrown
+                    if (exception == null){
+                        //success
+                        logger.info("Received new metadata. \n" +
+                                "Topic: " + metadata.topic() + "\n" +
+                                "Partition: " + metadata.partition() + "\n" +
+                                "Offset: " + metadata.offset() + "\n" +
+                                "Timestamp: " + metadata.timestamp());
+                    }else {
+                        logger.error("Error while producing" + exception);
+                    }
+                }
+            });
+        }
 
         //flush code
         producer.flush(); //wait for the data to be produced
