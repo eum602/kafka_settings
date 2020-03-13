@@ -4,6 +4,7 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.errors.WakeupException;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,50 +12,107 @@ import org.slf4j.LoggerFactory;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Properties;
+import java.util.concurrent.CountDownLatch;
 
 public class ConsumerGroup {
     public static void main(String[] args) {
-        System.out.println("Starting the Consumer");
-        Logger logger = LoggerFactory.getLogger(ConsumerGroup.class);
+        new ConsumerGroup().run();
+    }
+
+    private ConsumerGroup(){}
+
+    private void run(){
+        Logger logger = LoggerFactory.getLogger(ConsumerGroup.class.getName());
         String bootstrapServers = "127.0.0.1:9092";
-        String groupId = "My-consumer-application-1"; //by changing this we will consume all content of the topics.
+        String groupId = "My-consumer-application-with-threads"; //by changing this we will consume all content of the topics.
         String topic = "first_topic";
 
-        //Create consumer configs
-        Properties properties = new Properties(); //https://kafka.apache.org/documentation/#consumerconfigs
-        properties.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,bootstrapServers);
-        properties.setProperty(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-        /*The producer takes a string, serializes it (to byres) and sends it to kafka; then Kafka sends it to the consumer which deserializes it-*/
-        properties.setProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-        properties.setProperty(ConsumerConfig.GROUP_ID_CONFIG,groupId);
-        properties.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,"earliest"); //earliest is equivalent to the "from-beginning" option to the CLI
-        /*
-        * "earliest" ==> Means you want to read from the very beginning of your topic
-        * "latest" ==> Means the consumer reads from the only latest messages
-        * "none" ==> if set to "none" it will throw an error if there are no offsets being saved.
-        * Usually "earliest" or "latest" are used
-        * */
+        //latch for dealing with multiple threads
+        CountDownLatch latch = new CountDownLatch(1);
 
-        //create the kafka consumer
-        KafkaConsumer<String,String> consumer =  new KafkaConsumer<String, String>(properties);
+        //creates the consumer runnable
+        logger.info("Creating the consumer thread");
+        Runnable myConsumerRunnable = new ConsumerThread(bootstrapServers,groupId,topic,latch);
 
-        //subscribe a consumer to a topic(s)
-        //consumer.subscribe(Collections.singleton(topic));//consumer can take a topic or a collection of topics
-        //By doing a collection.singleton we are only subscribing to one topic; but you could definitely subscribe to only one topic.
+        //Start the thread
+        Thread myThread =  new Thread(myConsumerRunnable);
+        myThread.start();
 
-        //to subscribe to more than one topic we can:
-        //consumer.subscribe(Arrays.asList("first_topic","second_topic","n_topic"));
-        consumer.subscribe(Arrays.asList(topic));
+        //add a shutdown hook ==> it properly shutdown the application
+        Runtime.getRuntime().addShutdownHook(new Thread( () -> { //creating a new function with lambda functions syntax
+            logger.info("Caught shutdown hook");
+            ((ConsumerThread) myConsumerRunnable).shutDown();
 
-        //poll for new data
-        while (true){
-            ConsumerRecords<String,String> records =  consumer.poll(Duration.ofMillis(100));//timeout of 100 milliseconds
-
-            //looking into the records
-            for (ConsumerRecord<String,String> record : records ){
-                logger.info("Key: " + record.key() + ", Value: " + record.value());
-                logger.info("Partition: " + record.partition() + ", Offset: " + record.offset());
+            try {//add the latch.await() to properly shutdown
+                latch.await();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
             }
+            logger.info("Application has exited");
+        }
+
+        ));
+
+
+        try {
+            latch.await();//waits all the way until the application is over
+        } catch (InterruptedException e) {
+            logger.error("Application got interrupted",e);
+        } finally {
+            logger.info("Application is closing");
+        }
+    }
+
+    public class ConsumerThread implements Runnable{ //In this consumer thread, the consumer will perform the consuming operation
+        private CountDownLatch latch;
+        private KafkaConsumer<String,String> consumer;
+        private Logger logger = LoggerFactory.getLogger(ConsumerGroup.class);
+        public ConsumerThread(
+                String bootstrapServers,
+                String groupId,
+                String topic,
+                CountDownLatch latch) {//CountDown is something in Java which helps us deal with concurrency
+            this.latch = latch; //this latch is gonna be able to shutdown an application correctly
+            //create the kafka consumer
+
+            //Create consumer configs
+            Properties properties = new Properties(); //https://kafka.apache.org/documentation/#consumerconfigs
+            properties.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,bootstrapServers);
+            properties.setProperty(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+            /*The producer takes a string, serializes it (to byres) and sends it to kafka; then Kafka sends it to the consumer which deserializes it-*/
+            properties.setProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+            properties.setProperty(ConsumerConfig.GROUP_ID_CONFIG,groupId);
+            properties.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,"earliest"); //earliest is equivalent to the "from-beginning" option to the CLI
+
+            consumer =  new KafkaConsumer<String, String>(properties);
+            consumer.subscribe(Arrays.asList(topic));
+        }
+
+        @Override
+        public void run() {
+            //poll for new data
+            try{while (true){
+                    ConsumerRecords<String,String> records =  consumer.poll(Duration.ofMillis(100));//timeout of 100 milliseconds
+
+                    //looking into the records
+                    for (ConsumerRecord<String,String> record : records ){
+                        logger.info("Key: " + record.key() + ", Value: " + record.value());
+                        logger.info("Partition: " + record.partition() + ", Offset: " + record.offset());
+                    }
+                }
+            }catch (WakeupException e){
+                logger.info("Received shutdown signal!");
+            }finally {
+                //close the consumer
+                consumer.close();
+                //tell our main code we are done with the consumer
+                latch.countDown();
+            }
+        }
+
+        public void shutDown() {
+            //wakeup() method is made to interrupt consumer.poll(), it will throw the exception WakeUpException
+            consumer.wakeup();
         }
     }
 }
