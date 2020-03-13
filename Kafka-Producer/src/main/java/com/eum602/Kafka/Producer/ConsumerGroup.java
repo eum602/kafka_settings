@@ -12,17 +12,17 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.Properties;
 
-public class Consumer {
+public class ConsumerGroup {
     public static void main(String[] args) {
         System.out.println("Starting the Consumer");
-        Logger logger = LoggerFactory.getLogger(Consumer.class);
+        Logger logger = LoggerFactory.getLogger(ConsumerGroup.class);
         String bootstrapServers = "127.0.0.1:9092";
         String groupId = "My-application";
         String topic = "first_topic";
 
         //by running this we can see if the consumer is already up to date with the messages from kafka or it there is a lag.
         //kafka-consumer-groups.sh --bootstrap-server 127.0.0.1:9092 --describe --group My-application
-        /*If you want to read again from the beggining you can either have to reset the groupID or you just can change the groupId name.*/
+        /*If you want to read again from the beginning you can either have to reset the groupID or you just can change the groupId name.*/
 
         //Create consumer configs
         Properties properties = new Properties(); //https://kafka.apache.org/documentation/#consumerconfigs
@@ -31,7 +31,7 @@ public class Consumer {
         /*The producer takes a string, serializes it (to byres) and sends it to kafka; then Kafka sends it to the consumer which deserializes it-*/
         properties.setProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
         properties.setProperty(ConsumerConfig.GROUP_ID_CONFIG,groupId);
-        properties.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,"earliest");
+        properties.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,"earliest"); //earliest is equivalent to the "from-beginning" option to the CLI
         /*
         * "earliest" ==> Means you want to read from the very beginning of your topic
         * "latest" ==> Means the consumer reads from the only latest messages
