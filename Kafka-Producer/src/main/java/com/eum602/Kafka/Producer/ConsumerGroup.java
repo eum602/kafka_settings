@@ -17,12 +17,8 @@ public class ConsumerGroup {
         System.out.println("Starting the Consumer");
         Logger logger = LoggerFactory.getLogger(ConsumerGroup.class);
         String bootstrapServers = "127.0.0.1:9092";
-        String groupId = "My-application";
+        String groupId = "My-consumer-application-1"; //by changing this we will consume all content of the topics.
         String topic = "first_topic";
-
-        //by running this we can see if the consumer is already up to date with the messages from kafka or it there is a lag.
-        //kafka-consumer-groups.sh --bootstrap-server 127.0.0.1:9092 --describe --group My-application
-        /*If you want to read again from the beginning you can either have to reset the groupID or you just can change the groupId name.*/
 
         //Create consumer configs
         Properties properties = new Properties(); //https://kafka.apache.org/documentation/#consumerconfigs
