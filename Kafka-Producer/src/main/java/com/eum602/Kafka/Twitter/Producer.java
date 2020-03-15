@@ -21,13 +21,17 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
+import static com.eum602.Kafka.Twitter.Env.*;
+
 public class Producer {
     Logger logger = LoggerFactory.getLogger(Producer.class);
 
-    String consumerKey =  "9Rrc2eupWoKTPdqf8rhWrAphl";
-    String consumerSecret = "aQMhGVSMcGEPHoUEqFpFVwZrd7Bmo4OnTa7voye6pNNLfyHnme";
-    String token = "1799023009-hm9ua0aX2AtJZyQXVap4X5fvIsj9Z4GSpETvRMJ";
-    String secret = "sBeLo2E0sUClGhrqPtaTDV5dwfxZgSewW1fMaSCJfbQH8";
+    String consumerKey =  CONSUMER_KEY;
+    String consumerSecret = CONSUMER_SECRET;
+    String token = TOKEN;
+    String secret = SECRET;
+
+    List<String> terms = Lists.newArrayList("kafka","ethereum"); //this is the search criteria
 
     public Producer() {
     }
@@ -47,6 +51,16 @@ public class Producer {
 
         //Create a kafka producer
         KafkaProducer<String,String> producer = createKafkaProducer();
+
+        //add shutdown hook
+        Runtime.getRuntime().addShutdownHook(new Thread(() ->{
+            logger.info("stopping application...");
+            logger.info("Shutting down client from twitter...");
+            client.stop();
+            logger.info("Closing producer...");
+            producer.close(); //producer sends all messages it still have to kafka before shut down
+            logger.info("done!");
+        }));
 
         //Loop to send tweets to kafka
         while (!client.isDone()) {
@@ -82,7 +96,6 @@ public class Producer {
         StatusesFilterEndpoint hosebirdEndpoint = new StatusesFilterEndpoint();
             // Optional: set up some followings and track terms
         //List<Long> followings = Lists.newArrayList(1234L, 566788L);
-        List<String> terms = Lists.newArrayList("bitcoin"); //this is the search criteria
         //hosebirdEndpoint.followings(followings);
         hosebirdEndpoint.trackTerms(terms);
 
