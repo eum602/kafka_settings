@@ -120,6 +120,20 @@ public class Producer {
         properties.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,bootstrapServers);
         properties.setProperty(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
         properties.setProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+
+        //create safe producer
+        properties.setProperty(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG,"true");
+        properties.setProperty(ProducerConfig.ACKS_CONFIG,"all");
+        properties.setProperty(ProducerConfig.RETRIES_CONFIG,Integer.toString(Integer.MAX_VALUE));
+        properties.setProperty(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION,"5"); //use this only if kafka version is greater than 2.0.
+        //use 1 otherwise
+        /*
+        acks = all
+        enable.idempotence = true
+        max.in.flight.requests.per.connection = 5
+        retries = 2147483647
+        */
+
         KafkaProducer<String,String> producer = new KafkaProducer<String, String>(properties); //We want the key and value to be a string
         return  producer;
     }
