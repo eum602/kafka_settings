@@ -1,2 +1,4 @@
 rootProject.name = 'Kafka-Producer'
+include 'Kafka-basics'
+include 'TwitterProducer'
 
