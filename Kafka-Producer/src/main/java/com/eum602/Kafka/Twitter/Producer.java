@@ -31,7 +31,7 @@ public class Producer {
     String token = TOKEN;
     String secret = SECRET;
 
-    List<String> terms = Lists.newArrayList("kafka","ethereum"); //this is the search criteria
+    List<String> terms = Lists.newArrayList("kafka","ethereum","covid-19"); //this is the search criteria
 
     public Producer() {
     }
@@ -133,6 +133,11 @@ public class Producer {
         max.in.flight.requests.per.connection = 5
         retries = 2147483647
         */
+
+        //high throughput producer (at the expense of a bit latency and CPU usage)
+        properties.setProperty(ProducerConfig.COMPRESSION_TYPE_CONFIG,"snappy"); //good balance between CPU and compression ratio
+        properties.setProperty(ProducerConfig.LINGER_MS_CONFIG,"20");//in miliseconds ==> how much time to wait before sending the next batch
+        properties.setProperty(ProducerConfig.BATCH_SIZE_CONFIG,Integer.toString(32*1024)); //32kBytes
 
         KafkaProducer<String,String> producer = new KafkaProducer<String, String>(properties); //We want the key and value to be a string
         return  producer;

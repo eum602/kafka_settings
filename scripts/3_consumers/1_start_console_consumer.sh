@@ -1,5 +1,5 @@
 kafka_server_1=127.0.0.1:9092
-topic=first_topic
+topic=twitter_tweets #first_topic
 group_name=my-group
 kafka-console-consumer.sh --bootstrap-server $kafka_server_1 --topic $topic --group $group_name #--from-beginning
 #adding --group with some name creates a set with all consumers who run the kafka consumer with the same group id. To test this functionality run this command in various terminals and send messages from a producer you will see the following:
