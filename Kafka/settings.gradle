@@ -1,0 +1,6 @@
+rootProject.name = 'Kafka'
+include 'Kafka-basics'
+include 'TwitterProducer'
+include 'Kafka-Consumer'
+include 'ElasticConsumer'
+
