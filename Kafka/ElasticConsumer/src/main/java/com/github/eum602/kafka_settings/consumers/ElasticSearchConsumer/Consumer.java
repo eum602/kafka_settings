@@ -122,6 +122,9 @@ public class Consumer {
             properties.setProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
             properties.setProperty(ConsumerConfig.GROUP_ID_CONFIG,groupId);
             properties.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,"earliest"); //earliest is equivalent to the "from-beginning" option to the CLI
+            properties.setProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG,"false"); //disabling auto commit of offsets
+            properties.setProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG,"10");//We only get 10 records at a time
+
 
             consumer =  new KafkaConsumer<String, String>(properties);
             consumer.subscribe(Arrays.asList(topic));
@@ -133,6 +136,7 @@ public class Consumer {
             try{while (true){
                 ConsumerRecords<String,String> records =  consumer.poll(Duration.ofMillis(100));//timeout of 100 milliseconds
 
+                logger.info("Received " + records.count() + " records");
                 //looking into the records
                 for (ConsumerRecord<String,String> record : records ){
                     //insert data into the processor of data (eg. elk, blockchain node , etc)
@@ -152,10 +156,19 @@ public class Consumer {
                     //String id = indexResponse.getId();
                     logger.info(indexResponse.getId());
                     try{
-                        Thread.sleep(1000);
+                        Thread.sleep(10);//introduce a small delay before processing the next value in this batch
                     }catch (InterruptedException e){
                         e.printStackTrace();
                     }
+                }
+                //now committing happens right after all the entire loop of all records received in a previous batch
+                logger.info("Committing offsets ...");
+                consumer.commitSync();//commit in a synchronous matter
+                logger.info("Offsets have been committed");
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
                 }
             }
             }catch (WakeupException e){
