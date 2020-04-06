@@ -1,5 +1,6 @@
 package com.github.eum602.kafka_settings.consumers.ElasticSearchConsumer;
 
+import com.google.gson.JsonParser;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
@@ -135,12 +136,21 @@ public class Consumer {
                 //looking into the records
                 for (ConsumerRecord<String,String> record : records ){
                     //insert data into the processor of data (eg. elk, blockchain node , etc)
+                    /*There are two strategies to generate the id: In this way we assign a unique id to each value ==>
+                    we achieve idempotence on the consumer
+                    * 1. kafka generic ID: ==>
+                    * String id = record.topic() + "_" + record.partition() + "_" + record.offset();
+                    * 2. Twitter feed specific id ==> String id = extractIdFromTweet(record.value());
+                    * */
+                    String id = record.topic() + "_" + record.partition() + "_" + record.offset();//eg.: twitter_tweets_0_1722
+                    //String id = extractIdFromTweet(record.value());
                     String jsonString = record.value();
                     IndexRequest indexRequest = new IndexRequest("twitter")
+                            .id(id) //custom id is to make our consumer idempotent
                             .source(jsonString, XContentType.JSON);
                     IndexResponse indexResponse = client.index(indexRequest, RequestOptions.DEFAULT);
-                    String id = indexResponse.getId();
-                    logger.info(id);
+                    //String id = indexResponse.getId();
+                    logger.info(indexResponse.getId());
                     try{
                         Thread.sleep(1000);
                     }catch (InterruptedException e){
@@ -173,5 +183,14 @@ public class Consumer {
             //wakeup() method is made to interrupt consumer.poll(), it will throw the exception WakeUpException
             consumer.wakeup();
         }
+    }
+
+    private static JsonParser jsonParser = new JsonParser();
+    private static String extractIdFromTweet(String tweetJson){
+        //gson library
+        return jsonParser.parse(tweetJson)
+                .getAsJsonObject()
+                .get("id_string")
+                .getAsString();
     }
 }
