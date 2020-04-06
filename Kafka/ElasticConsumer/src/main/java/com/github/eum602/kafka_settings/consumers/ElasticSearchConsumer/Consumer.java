@@ -13,6 +13,8 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.errors.WakeupException;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.elasticsearch.action.bulk.BulkRequest;
+import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.client.RequestOptions;
@@ -123,8 +125,7 @@ public class Consumer {
             properties.setProperty(ConsumerConfig.GROUP_ID_CONFIG,groupId);
             properties.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,"earliest"); //earliest is equivalent to the "from-beginning" option to the CLI
             properties.setProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG,"false"); //disabling auto commit of offsets
-            properties.setProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG,"10");//We only get 10 records at a time
-
+            properties.setProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG,"100");//pulling one hundred records at a time from kafka
 
             consumer =  new KafkaConsumer<String, String>(properties);
             consumer.subscribe(Arrays.asList(topic));
@@ -136,7 +137,10 @@ public class Consumer {
             try{while (true){
                 ConsumerRecords<String,String> records =  consumer.poll(Duration.ofMillis(100));//timeout of 100 milliseconds
 
-                logger.info("Received " + records.count() + " records");
+                Integer recordCount =  records.count();
+                logger.info("Received " + recordCount + " records");
+                BulkRequest bulkRequest = new BulkRequest();
+
                 //looking into the records
                 for (ConsumerRecord<String,String> record : records ){
                     //insert data into the processor of data (eg. elk, blockchain node , etc)
@@ -146,34 +150,37 @@ public class Consumer {
                     * String id = record.topic() + "_" + record.partition() + "_" + record.offset();
                     * 2. Twitter feed specific id ==> String id = extractIdFromTweet(record.value());
                     * */
-                    String id = record.topic() + "_" + record.partition() + "_" + record.offset();//eg.: twitter_tweets_0_1722
-                    //String id = extractIdFromTweet(record.value());
                     String jsonString = record.value();
-                    IndexRequest indexRequest = new IndexRequest("twitter")
-                            .id(id) //custom id is to make our consumer idempotent
-                            .source(jsonString, XContentType.JSON);
-                    IndexResponse indexResponse = client.index(indexRequest, RequestOptions.DEFAULT);
-                    //String id = indexResponse.getId();
-                    logger.info(indexResponse.getId());
-                    try{
-                        Thread.sleep(10);//introduce a small delay before processing the next value in this batch
-                    }catch (InterruptedException e){
-                        e.printStackTrace();
+                    try{//in general wrapps the logic that creates the request ready to be sent to elastic, ethereum,etc
+                        String id = record.topic() + "_" + record.partition() + "_" + record.offset();//eg.: twitter_tweets_0_1722
+                        //String id = extractIdFromTweet(record.value());
+                        IndexRequest indexRequest = new IndexRequest("twitter")
+                                .id(id) //custom id is to make our consumer idempotent
+                                .source(jsonString, XContentType.JSON);
+                        bulkRequest.add(indexRequest); //loading each request into the bulkRequest (takes no time)
+                        //IndexResponse indexResponse = client.index(indexRequest, RequestOptions.DEFAULT);
+                        //String id = indexResponse.getId();
+                        //logger.info(indexResponse.getId());
+                    }catch (NullPointerException e){
+                        logger.warn("Skipping bad data " + record.value());
                     }
                 }
-                //now committing happens right after all the entire loop of all records received in a previous batch
-                logger.info("Committing offsets ...");
-                consumer.commitSync();//commit in a synchronous matter
-                logger.info("Offsets have been committed");
+                if (recordCount>0){
+                    BulkResponse bulkItemResponses =  client.bulk(bulkRequest,RequestOptions.DEFAULT);//sending a bunch of
+                    //records at a time
+                    logger.info("Committing offsets ...");
+                    consumer.commitSync();//commit in a synchronous matter
+                    logger.info("Offsets have been committed");
+                }
                 try {
-                    Thread.sleep(1000);
+                    Thread.sleep(1000); //sleeping one second before pulling the next group from kafka
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
             }
             }catch (WakeupException e){
                 logger.info("Received shutdown signal!");
-            } catch (IOException e) {//because of the client.index
+            } catch (IOException e) {//added because sending a bulk (batch) instead one at a time
                 e.printStackTrace();
             } finally {
                 //close the consumer
