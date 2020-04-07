@@ -1,6 +1,6 @@
 kafka_server_1=127.0.0.1:9092
-topic=first_topic
-group_name=my-group
+topic=twitter_tweets #first_topic
+group_name=kafka-elastic-search
 
 kafka-consumer-groups.sh --bootstrap-server $kafka_server_1 --group $group_name --reset-offsets --to-earliest --execute --topic $topic
 
