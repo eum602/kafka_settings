@@ -26,3 +26,10 @@ dependencies {
 
     testCompile group: 'junit', name: 'junit', version: '4.12'
 }
+
+task consumerSendToElk(type: JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+
+    main = project.properties.getOrDefault("mainClass","com.github.eum602.kafka_settings.consumers.ElasticSearchConsumer.Consumer") as String
+}
+

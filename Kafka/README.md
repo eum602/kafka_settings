@@ -22,3 +22,14 @@
 ```shell script
 ./gradlew Kafka-basics:consumerGroup 
 ```
+
+## Pulling from a Twitter api and sending to a topic
+
+```shell script
+./gradlew TwitterProducer:producerFromTwitter
+```
+## Consuming from a topic and sending to ELK
+
+```shell script
+./gradlew ElasticConsumer:consumerSendToElk
+```

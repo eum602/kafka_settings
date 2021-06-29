@@ -150,9 +150,11 @@ public class Consumer {
                     * String id = record.topic() + "_" + record.partition() + "_" + record.offset();
                     * 2. Twitter feed specific id ==> String id = extractIdFromTweet(record.value());
                     * */
+                    Thread.sleep(2000); //only simulating some process .. we consume as far as we can
                     String jsonString = record.value();
                     try{//in general wrapps the logic that creates the request ready to be sent to elastic, ethereum,etc
                         String id = record.topic() + "_" + record.partition() + "_" + record.offset();//eg.: twitter_tweets_0_1722
+                        logger.info("id is: {} ", id);
                         //String id = extractIdFromTweet(record.value());
                         IndexRequest indexRequest = new IndexRequest("twitter")
                                 .id(id) //custom id is to make our consumer idempotent
@@ -180,7 +182,7 @@ public class Consumer {
             }
             }catch (WakeupException e){
                 logger.info("Received shutdown signal!");
-            } catch (IOException e) {//added because sending a bulk (batch) instead one at a time
+            } catch (IOException | InterruptedException e) {//added because sending a bulk (batch) instead one at a time
                 e.printStackTrace();
             } finally {
                 //close the consumer
