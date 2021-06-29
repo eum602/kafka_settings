@@ -20,3 +20,28 @@ dependencies {
 
     testCompile group: 'junit', name: 'junit', version: '4.12'
 }
+
+task runApp(type: JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+
+    main = project.properties.getOrDefault("mainClass", "Kafka.Basics.Producer") as String
+}
+
+task producer(type: JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+
+    main = project.properties.getOrDefault("mainClass", "Kafka.Basics.Producer") as String
+}
+
+
+task consumer(type: JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+
+    main = project.properties.getOrDefault("mainClass","Kafka.Basics.Consumer") as String
+}
+
+task consumerGroup(type: JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+
+    main = project.properties.getOrDefault("mainClass","Kafka.Basics.ConsumerGroup") as String
+}
