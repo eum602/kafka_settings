@@ -33,3 +33,9 @@
 ```shell script
 ./gradlew ElasticConsumer:consumerSendToElk
 ```
+
+## Running a Filter
+
+```shell script
+./gradlew Kafka-streams-filter-tweets:streamsFilterTweets  
+```
